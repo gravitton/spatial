@@ -44,8 +44,43 @@ import (
 )
 ```
 
+An index holds a key and a box per entity, and answers which keys may touch a region. The shapes
+decide the rest.
+
 ```go
-index := spatial.NewHash[int, float64](64)
+index := spatial.NewHash[Entity](64.0) // cells about the size of a typical entity
+
+index.Set(player, shapes[player].Bounds()) // insert, or move after the entity moved
+index.Delete(bullet)
+```
+
+### Collisions
+
+```go
+var pairs []spatial.Pair[Entity] // reused every frame, so the broad phase allocates nothing
+
+pairs = index.AppendPairs(pairs[:0])
+for _, pair := range pairs {
+	if contact, ok := geom.Collide(shapes[pair.A], shapes[pair.B]); ok {
+		resolve(pair.A, pair.B, contact)
+	}
+}
+```
+
+### Queries
+
+```go
+var keys []Entity
+
+keys = index.AppendQueryBox(keys[:0], camera)    // what to draw
+keys = index.AppendQueryPoint(keys[:0], cursor)  // what is under the cursor
+
+sight := geom.Seg(guard, target)
+for key := range index.QuerySegment(sight) { // line of sight, stopping at the first wall
+	if geom.Intersects(shapes[key], sight) {
+		break
+	}
+}
 ```
 
 ## Credits
