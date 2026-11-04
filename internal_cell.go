@@ -106,9 +106,9 @@ func tolerance[T geom.Number](magnitude float64) float64 {
 	case 0:
 		return 0
 	case geom.Delta32:
-		return 4 * max(geom.Delta32, magnitude*0x1p-22)
+		return float64(4 * max(geom.Delta32, magnitude*0x1p-22))
 	default:
-		return 4 * max(geom.Delta, magnitude*0x1p-51)
+		return float64(4 * max(geom.Delta, magnitude*0x1p-51))
 	}
 }
 

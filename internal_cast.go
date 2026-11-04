@@ -45,8 +45,8 @@ func newCast[T geom.Number](origin geom.Point[float64], direction geom.Vector[fl
 		return cast{}, false
 	}
 
-	low := geom.Point[float64]{X: float64(occupied.min.x) * size, Y: float64(occupied.min.y) * size}
-	high := geom.Point[float64]{X: float64(occupied.max.x+1) * size, Y: float64(occupied.max.y+1) * size}
+	low := geom.Point[float64]{X: float64(float64(occupied.min.x) * size), Y: float64(float64(occupied.min.y) * size)}
+	high := geom.Point[float64]{X: float64(float64(occupied.max.x+1) * size), Y: float64(float64(occupied.max.y+1) * size)}
 
 	magnitude = max(magnitude, magnitudeOf(low, high))
 
@@ -67,7 +67,7 @@ func newCast[T geom.Number](origin geom.Point[float64], direction geom.Vector[fl
 		return cast{}, false
 	}
 
-	ya, yb := origin.Y+c.from*direction.Y, origin.Y+c.to*direction.Y
+	ya, yb := origin.Y+float64(c.from*direction.Y), origin.Y+float64(c.to*direction.Y)
 	lo := geom.Clamp(column(min(ya, yb)-c.margin, size), occupied.min.y, occupied.max.y)
 	hi := geom.Clamp(column(max(ya, yb)+c.margin, size), occupied.min.y, occupied.max.y)
 
@@ -101,12 +101,12 @@ func (c *cast) row(y int) span {
 	from, to := c.from, c.to
 
 	if c.direction.Y != 0 {
-		ta := (float64(y)*c.size - c.margin - c.origin.Y) / c.direction.Y
-		tb := (float64(y+1)*c.size + c.margin - c.origin.Y) / c.direction.Y
+		ta := (float64(float64(y)*c.size) - c.margin - c.origin.Y) / c.direction.Y
+		tb := (float64(float64(y+1)*c.size) + c.margin - c.origin.Y) / c.direction.Y
 		from, to = max(from, min(ta, tb)), min(to, max(ta, tb))
 	}
 
-	xa, xb := c.origin.X+from*c.direction.X, c.origin.X+to*c.direction.X
+	xa, xb := c.origin.X+float64(from*c.direction.X), c.origin.X+float64(to*c.direction.X)
 
 	return span{max(column(min(xa, xb)-c.margin, c.size), c.columns.lo), min(column(max(xa, xb)+c.margin, c.size), c.columns.hi)}
 }
