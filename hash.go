@@ -1,6 +1,7 @@
 package spatial
 
 import (
+	"fmt"
 	"iter"
 	"math"
 	"slices"
@@ -26,7 +27,7 @@ type Hash[K comparable, T geom.Number] struct {
 // that is not positive and finite.
 func NewHash[K comparable, T geom.Number](cellSize T) *Hash[K, T] {
 	if !(cellSize > 0) || !geom.IsFinite(cellSize) {
-		panic("spatial: cell size must be positive and finite")
+		panic(fmt.Errorf("%w %v: must be positive and finite", ErrInvalidCellSize, cellSize))
 	}
 
 	return &Hash[K, T]{

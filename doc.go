@@ -29,5 +29,6 @@
 //
 // A degenerate value gets an answer; an argument with no meaning gets a panic:
 //
-//   - [NewHash] for a cell size that is not positive and finite: no cell can be drawn at it.
+//   - [NewHash] for a cell size that is not positive and finite: no cell can be drawn at it, and
+//     the panic value is an error that errors.Is matches to [ErrInvalidCellSize].
 package spatial

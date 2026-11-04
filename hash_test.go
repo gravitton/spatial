@@ -26,18 +26,18 @@ func TestNewHash(t *testing.T) {
 		assert.Equal(t, NewHash[int](32).Len(), 0)
 	})
 	t.Run("panics for a cell size that is not positive and finite", func(t *testing.T) {
-		assert.Panics(t, func() {
+		assert.PanicsWith(t, func() {
 			NewHash[int](0)
-		})
-		assert.Panics(t, func() {
+		}, ErrInvalidCellSize)
+		assert.PanicsWith(t, func() {
 			NewHash[int](-1)
-		})
-		assert.Panics(t, func() {
+		}, ErrInvalidCellSize)
+		assert.PanicsWith(t, func() {
 			NewHash[int](math.NaN())
-		})
-		assert.Panics(t, func() {
+		}, ErrInvalidCellSize)
+		assert.PanicsWith(t, func() {
 			NewHash[int](math.Inf(1))
-		})
+		}, ErrInvalidCellSize)
 	})
 }
 
