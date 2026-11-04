@@ -12,6 +12,7 @@
 [![Build Status][ico-workflow]][link-workflow]
 [![Coverage Status][ico-coverage]][link-coverage]
 [![Go Dev Reference][ico-go-dev-reference]][link-go-dev-reference]
+[![Go Version][ico-go-version]][link-go]
 [![Software License][ico-license]][link-licence]
 
 Broad-phase spatial indexes for game development
@@ -93,14 +94,16 @@ for key := range index.QuerySegment(sight) { // line of sight, stopping at the f
 The MIT License (MIT). Please see [License File][link-licence] for more information.
 
 
-[ico-license]:              https://img.shields.io/github/license/gravitton/spatial.svg?style=flat-square&color=blue
+[ico-license]:              https://img.shields.io/github/license/gravitton/spatial.svg?style=flat-square&color=lightgrey
 [ico-workflow]:             https://img.shields.io/github/actions/workflow/status/gravitton/spatial/main.yml?branch=main&style=flat-square
-[ico-release]:              https://img.shields.io/github/v/release/gravitton/spatial?style=flat-square&color=blue
-[ico-go-dev-reference]:     https://img.shields.io/badge/go.dev-reference-blue?style=flat-square
+[ico-release]:              https://img.shields.io/github/v/release/gravitton/spatial?style=flat-square&color=e8883a
+[ico-go-version]:           https://img.shields.io/github/go-mod/go-version/gravitton/spatial?style=flat-square&color=007d9c
+[ico-go-dev-reference]:     https://img.shields.io/badge/go.dev-reference-007d9c?style=flat-square
 [ico-coverage]:             https://img.shields.io/coverallsCoverage/github/gravitton/spatial?style=flat-square
 
 [link-author]:              https://github.com/gravitton
 [link-release]:             https://github.com/gravitton/spatial/releases
+[link-go]:                  https://go.dev/doc/devel/release
 [link-contributors]:        https://github.com/gravitton/spatial/contributors
 [link-licence]:             ./LICENSE.md
 [link-changelog]:           ./CHANGELOG.md
