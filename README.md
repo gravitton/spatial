@@ -15,12 +15,11 @@
 [![Go Version][ico-go-version]][link-go]
 [![Software License][ico-license]][link-licence]
 
-Broad-phase spatial indexes for game development
+Broad-phase spatial indexes: a spatial hash, its box, point and cast queries, and touching pairs
 
 <hr>
 
 </div>
-
 
 ## Features
 
@@ -36,14 +35,11 @@ The rules behind them are in the [package documentation][link-go-dev-reference].
 go get github.com/gravitton/spatial
 ```
 
-## Usage
-
 ```go
-import (
-	geom "github.com/gravitton/geometry"
-	"github.com/gravitton/spatial"
-)
+import "github.com/gravitton/spatial"
 ```
+
+## Usage
 
 An index holds a key and a box per entity, and answers which keys may touch a region. The shapes
 decide the rest.
@@ -84,6 +80,8 @@ for key := range index.QuerySegment(sight) { // line of sight, stopping at the f
 }
 ```
 
+Full reference: [pkg.go.dev][link-go-dev-reference].
+
 ## Credits
 
 - [Tomáš Novotný](https://github.com/tomas-novotny)
@@ -101,13 +99,11 @@ The MIT License (MIT). Please see [License File][link-licence] for more informat
 [ico-go-dev-reference]:     https://img.shields.io/badge/go.dev-reference-007d9c?style=flat-square
 [ico-coverage]:             https://img.shields.io/coverallsCoverage/github/gravitton/spatial?style=flat-square
 
-[link-author]:              https://github.com/gravitton
 [link-release]:             https://github.com/gravitton/spatial/releases
 [link-go]:                  https://go.dev/doc/devel/release
 [link-contributors]:        https://github.com/gravitton/spatial/contributors
 [link-licence]:             ./LICENSE.md
-[link-changelog]:           ./CHANGELOG.md
 [link-workflow]:            https://github.com/gravitton/spatial/actions
 [link-go-dev-reference]:    https://pkg.go.dev/github.com/gravitton/spatial
-[link-geometry]:            https://github.com/gravitton/geometry
 [link-coverage]:            https://coveralls.io/github/gravitton/spatial
+[link-geometry]:            https://github.com/gravitton/geometry

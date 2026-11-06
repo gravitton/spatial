@@ -640,28 +640,27 @@ func ExampleHash() {
 	// 3
 }
 
-func ExampleHash_AppendPairs() {
-	shapes := map[int]geom.Shape[float64]{
-		1: geom.Circ(geom.Pt(10.0, 10), 5),
-		2: geom.Circ(geom.Pt(17.0, 10), 5),
-		3: geom.Bx(geom.Pt(21.0, 14), geom.Pt(30.0, 30)),
-	}
+func ExampleHash_AppendQueryBox() {
+	index := NewHash[int](64.0)
+	index.Set(1, geom.Bx(geom.Pt(10.0, 10), geom.Pt(40.0, 40)))
+	index.Set(2, geom.Bx(geom.Pt(100.0, 20), geom.Pt(120.0, 60)))
+	index.Set(3, geom.Bx(geom.Pt(500.0, 500), geom.Pt(520.0, 520)))
 
-	index := NewHash[int](16.0)
-	for key, shape := range shapes {
-		index.Set(key, shape.Bounds())
-	}
+	camera := geom.Bx(geom.Pt(0.0, 0), geom.Pt(200.0, 150))
+	cursor := geom.Pt(110.0, 30)
 
-	var pairs []Pair[int]
-	pairs = index.AppendPairs(pairs[:0])
-	for _, pair := range pairs {
-		if _, ok := geom.Collide(shapes[pair.A], shapes[pair.B]); ok {
-			fmt.Println(min(pair.A, pair.B), max(pair.A, pair.B))
-		}
-	}
+	var keys []int
+
+	keys = index.AppendQueryBox(keys[:0], camera)
+	slices.Sort(keys)
+	fmt.Println(keys)
+
+	keys = index.AppendQueryPoint(keys[:0], cursor)
+	fmt.Println(keys)
 
 	// Output:
-	// 1 2
+	// [1 2]
+	// [2]
 }
 
 func ExampleHash_QuerySegment() {
@@ -688,6 +687,30 @@ func ExampleHash_QuerySegment() {
 
 	// Output:
 	// false
+}
+
+func ExampleHash_AppendPairs() {
+	shapes := map[int]geom.Shape[float64]{
+		1: geom.Circ(geom.Pt(10.0, 10), 5),
+		2: geom.Circ(geom.Pt(17.0, 10), 5),
+		3: geom.Bx(geom.Pt(21.0, 14), geom.Pt(30.0, 30)),
+	}
+
+	index := NewHash[int](16.0)
+	for key, shape := range shapes {
+		index.Set(key, shape.Bounds())
+	}
+
+	var pairs []Pair[int]
+	pairs = index.AppendPairs(pairs[:0])
+	for _, pair := range pairs {
+		if _, ok := geom.Collide(shapes[pair.A], shapes[pair.B]); ok {
+			fmt.Println(min(pair.A, pair.B), max(pair.A, pair.B))
+		}
+	}
+
+	// Output:
+	// 1 2
 }
 
 // fixture is a hash filled with random boxes by Set and Delete, with checks of each query against
