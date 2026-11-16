@@ -4,20 +4,6 @@ import (
 	geom "github.com/gravitton/geometry"
 )
 
-// span is the columns from lo to hi inclusive; one with lo past hi is empty.
-type span struct {
-	lo, hi int
-}
-
-// noSpan is the empty span.
-var noSpan = span{1, 0}
-
-// overlaps reports whether the span holds a column from lo to hi.
-func (s span) overlaps(lo, hi int) bool {
-	return max(s.lo, lo) <= min(s.hi, hi)
-}
-
-// cast is the walk of a segment or ray over the occupied cells: the points origin + t·direction for
 // t from from to to, clipped to the occupied cells grown by the margin.
 //
 // The walk takes the rows in the order the cast crosses them, and in each row the columns the cast
@@ -146,4 +132,17 @@ func (c *cast) enters(r cellRange, at cell, current, previous span) bool {
 	}
 
 	return at.x == max(current.lo, r.min.x)
+}
+
+// span is the columns from lo to hi inclusive; one with lo past hi is empty.
+type span struct {
+	lo, hi int
+}
+
+// noSpan is the empty span.
+var noSpan = span{1, 0}
+
+// overlaps reports whether the span holds a column from lo to hi.
+func (s span) overlaps(lo, hi int) bool {
+	return max(s.lo, lo) <= min(s.hi, hi)
 }

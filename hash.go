@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"iter"
 	"math"
-	"slices"
 
 	geom "github.com/gravitton/geometry"
 )
@@ -17,9 +16,9 @@ type Hash[K comparable, T geom.Number] struct {
 	cellSize T
 	slots    []slot[K, T]
 	index    map[K]int
-	cells    map[cell][]int
-	spare    [][]int
-	large    []int
+	cells    map[cell]slotList
+	spare    []slotList
+	large    slotList
 	occupied cellRange
 }
 
@@ -33,7 +32,7 @@ func NewHash[K comparable, T geom.Number](cellSize T) *Hash[K, T] {
 	return &Hash[K, T]{
 		cellSize: cellSize,
 		index:    map[K]int{},
-		cells:    map[cell][]int{},
+		cells:    map[cell]slotList{},
 		occupied: noCells,
 	}
 }
@@ -134,7 +133,7 @@ func (h *Hash[K, T]) place(i int, box geom.Box[T]) {
 func (h *Hash[K, T]) unplace(i int) {
 	s := &h.slots[i]
 	if s.large {
-		h.large = without(h.large, i)
+		h.large = h.large.without(i)
 
 		return
 	}
@@ -142,7 +141,7 @@ func (h *Hash[K, T]) unplace(i int) {
 	for y := s.cells.min.y; y <= s.cells.max.y; y++ {
 		for x := s.cells.min.x; x <= s.cells.max.x; x++ {
 			c := cell{x, y}
-			list := without(h.cells[c], i)
+			list := h.cells[c].without(i)
 			if len(list) == 0 {
 				delete(h.cells, c)
 				h.spare = append(h.spare, list)
@@ -157,14 +156,14 @@ func (h *Hash[K, T]) unplace(i int) {
 func (h *Hash[K, T]) renumber(from, to int) {
 	s := &h.slots[to]
 	if s.large {
-		replace(h.large, from, to)
+		h.large.replace(from, to)
 
 		return
 	}
 
 	for y := s.cells.min.y; y <= s.cells.max.y; y++ {
 		for x := s.cells.min.x; x <= s.cells.max.x; x++ {
-			replace(h.cells[cell{x, y}], from, to)
+			h.cells[cell{x, y}].replace(from, to)
 		}
 	}
 }
@@ -290,7 +289,7 @@ func (h *Hash[K, T]) eachTouching(box geom.Box[T], visit func(i int)) {
 }
 
 // eachTouchingIn calls visit with the keys of the cell's list that eachTouching reports there.
-func (h *Hash[K, T]) eachTouchingIn(c cell, list []int, cells cellRange, box geom.Box[T], visit func(i int)) {
+func (h *Hash[K, T]) eachTouchingIn(c cell, list slotList, cells cellRange, box geom.Box[T], visit func(i int)) {
 	for _, i := range list {
 		if s := &h.slots[i]; s.firstIn(cells) == c && s.box.IntersectsBox(box) {
 			visit(i)
@@ -427,17 +426,4 @@ func (h *Hash[K, T]) AppendPairs(dst []Pair[K]) []Pair[K] {
 	}
 
 	return dst
-}
-
-// without returns the list with the value removed, the last value moved into its place.
-func without(list []int, value int) []int {
-	last := len(list) - 1
-	list[slices.Index(list, value)] = list[last]
-
-	return list[:last]
-}
-
-// replace replaces the value in the list with another.
-func replace(list []int, from, to int) {
-	list[slices.Index(list, from)] = to
 }
