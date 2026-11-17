@@ -8,6 +8,7 @@ import (
 )
 
 var figures = []figure{
+	{"hero", hero},
 	{"queries", queries},
 	{"casts", casts},
 	{"once", once},

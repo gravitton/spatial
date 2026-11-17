@@ -21,6 +21,16 @@ Broad-phase spatial indexes: a spatial hash, its box, point and cast queries, an
 
 </div>
 
+<p align="center">
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/gravitton/spatial/refs/heads/main/docs/images/hero-dark.svg">
+  <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/gravitton/spatial/refs/heads/main/docs/images/hero-light.svg">
+  <img alt="The map over the cells of a spatial hash: the keys QueryBox returns for the scout's view of radius 6, the keys QuerySegment returns for the line to the goal, and the pairs of keys that touch" src="https://raw.githubusercontent.com/gravitton/spatial/refs/heads/main/docs/images/hero-light.svg">
+</picture>
+<br>
+<sub>Every picture in this README is drawn from what the package returns for the call beside it.</sub>
+</p>
+
 ## Features
 
 - **Generic** – any comparable key, any [`geometry`][link-geometry] number type for coordinates.
