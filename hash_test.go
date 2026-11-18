@@ -129,6 +129,24 @@ func TestHash_Set(t *testing.T) {
 	})
 }
 
+func BenchmarkHash_Set(b *testing.B) {
+	for _, layout := range benchmarkLayouts {
+		b.Run(layout.name, func(b *testing.B) {
+			h, boxes := benchmarkHash(layout)
+			step := geom.Vec(20.0, 12)
+			b.ResetTimer()
+			for i := 0; b.Loop(); i++ {
+				key := i % len(boxes)
+				if i/len(boxes)%2 == 0 {
+					h.Set(key, boxes[key].Translate(step))
+					continue
+				}
+				h.Set(key, boxes[key])
+			}
+		})
+	}
+}
+
 func TestHash_Delete(t *testing.T) {
 	t.Run("removes the key", func(t *testing.T) {
 		h := NewHash[int](10)
@@ -399,6 +417,30 @@ func TestHash_QuerySegment(t *testing.T) {
 	t.Run("returns a key for a segment of zero length", func(t *testing.T) {
 		assertKeys(t, slices.Collect(h.QuerySegment(geom.Seg(geom.Pt(25, 5), geom.Pt(25, 5)))), []int{1})
 	})
+	t.Run("returns the keys across rows and columns of no key", func(t *testing.T) {
+		h := NewHash[int](10)
+		h.Set(1, geom.Bx(geom.Pt(0, 0), geom.Pt(15, 15)))
+		h.Set(2, geom.Bx(geom.Pt(100, 100), geom.Pt(115, 115)))
+		h.Set(3, geom.Bx(geom.Pt(0, 100), geom.Pt(15, 115)))
+		h.Set(4, geom.Bx(geom.Pt(100, 0), geom.Pt(115, 15)))
+
+		assertKeys(t, slices.Collect(h.QuerySegment(geom.Seg(geom.Pt(5, 5), geom.Pt(105, 105)))), []int{1, 2})
+		assertKeys(t, slices.Collect(h.QuerySegment(geom.Seg(geom.Pt(105, 105), geom.Pt(5, 5)))), []int{1, 2})
+		assertKeys(t, slices.Collect(h.QuerySegment(geom.Seg(geom.Pt(105, 5), geom.Pt(5, 105)))), []int{3, 4})
+		assertKeys(t, slices.Collect(h.QuerySegment(geom.Seg(geom.Pt(5, 5), geom.Pt(105, 5)))), []int{1, 4})
+		assertKeys(t, slices.Collect(h.QuerySegment(geom.Seg(geom.Pt(5, 105), geom.Pt(5, 5)))), []int{1, 3})
+	})
+	t.Run("returns no key moved or deleted from the rows and columns it held", func(t *testing.T) {
+		h := NewHash[int](10)
+		h.Set(1, geom.Bx(geom.Pt(0, 0), geom.Pt(15, 15)))
+		h.Set(2, geom.Bx(geom.Pt(100, 100), geom.Pt(115, 115)))
+		h.Set(3, geom.Bx(geom.Pt(100, 0), geom.Pt(115, 15)))
+		h.Set(2, geom.Bx(geom.Pt(200, 200), geom.Pt(215, 215)))
+		h.Delete(3)
+
+		assertKeys(t, slices.Collect(h.QuerySegment(geom.Seg(geom.Pt(5, 5), geom.Pt(205, 205)))), []int{1, 2})
+		assertKeys(t, slices.Collect(h.QuerySegment(geom.Seg(geom.Pt(105, 5), geom.Pt(105, 105)))), []int{})
+	})
 	t.Run("returns nothing where the segment misses every cell", func(t *testing.T) {
 		assert.Empty(t, slices.Collect(h.QuerySegment(geom.Seg(geom.Pt(-50, -50), geom.Pt(-40, 100)))))
 	})
@@ -452,29 +494,31 @@ func TestHash_AppendQuerySegment(t *testing.T) {
 
 func BenchmarkHash_AppendQuerySegment(b *testing.B) {
 	for _, layout := range benchmarkLayouts {
-		b.Run("hash/"+layout.name, func(b *testing.B) {
-			h, boxes := benchmarkHash(layout)
-			dst := make([]int, 0, 64)
-			b.ResetTimer()
-			for i := 0; b.Loop(); i++ {
-				sinkKeys = h.AppendQuerySegment(dst, benchmarkSegment(boxes, i))
-			}
-		})
-		b.Run("scan/"+layout.name, func(b *testing.B) {
-			_, boxes := benchmarkHash(layout)
-			dst := make([]int, 0, 64)
-			b.ResetTimer()
-			for i := 0; b.Loop(); i++ {
-				segment := benchmarkSegment(boxes, i)
-				dst = dst[:0]
-				for key, box := range boxes {
-					if segment.IntersectsBox(box) {
-						dst = append(dst, key)
-					}
+		for _, length := range benchmarkSegments {
+			b.Run("hash/"+length.name+"/"+layout.name, func(b *testing.B) {
+				h, boxes := benchmarkHash(layout)
+				dst := make([]int, 0, 64)
+				b.ResetTimer()
+				for i := 0; b.Loop(); i++ {
+					sinkKeys = h.AppendQuerySegment(dst, length.segment(boxes, i))
 				}
-				sinkKeys = dst
-			}
-		})
+			})
+			b.Run("scan/"+length.name+"/"+layout.name, func(b *testing.B) {
+				_, boxes := benchmarkHash(layout)
+				dst := make([]int, 0, 64)
+				b.ResetTimer()
+				for i := 0; b.Loop(); i++ {
+					segment := length.segment(boxes, i)
+					dst = dst[:0]
+					for key, box := range boxes {
+						if segment.IntersectsBox(box) {
+							dst = append(dst, key)
+						}
+					}
+					sinkKeys = dst
+				}
+			})
+		}
 	}
 }
 
@@ -936,21 +980,24 @@ func assertPairs(t *testing.T, actual, expected []Pair[int]) {
 	assert.Equal(t, normalize(actual), normalize(expected))
 }
 
-// benchmarkLayout is a number of keys of about a cell over a square world that keeps a few keys
-// per cell, spread uniformly or in a few dense clusters.
+// benchmarkLayout is a number of keys of about a cell, spread uniformly over a square world that
+// keeps a few keys per cell, or in a few dense clusters over a world as wide or wider.
 type benchmarkLayout struct {
 	name      string
 	n         int
 	clustered bool
+	scatter   float64
 }
 
 // benchmarkLayouts are the layouts the benchmarks run at.
 var benchmarkLayouts = []benchmarkLayout{
-	{"uniform/30", 30, false},
-	{"uniform/300", 300, false},
-	{"uniform/30000", 30000, false},
-	{"clustered/300", 300, true},
-	{"clustered/30000", 30000, true},
+	{"uniform/30", 30, false, 1},
+	{"uniform/300", 300, false, 1},
+	{"uniform/30000", 30000, false, 1},
+	{"clustered/300", 300, true, 1},
+	{"clustered/30000", 30000, true, 1},
+	{"sparse/300", 300, true, 16},
+	{"sparse/30000", 30000, true, 16},
 }
 
 // benchmarkHash returns a hash of the layout and the boxes it stores.
@@ -959,7 +1006,7 @@ func benchmarkHash(layout benchmarkLayout) (*Hash[int, float64], []geom.Box[floa
 	side := math.Sqrt(float64(layout.n)) * 32
 	centers := make([]geom.Point[float64], 8)
 	for i := range centers {
-		centers[i] = geom.Pt(rng.Float64()*side, rng.Float64()*side)
+		centers[i] = geom.Pt(rng.Float64()*side*layout.scatter, rng.Float64()*side*layout.scatter)
 	}
 
 	h := NewHash[int](32.0)
@@ -976,9 +1023,21 @@ func benchmarkHash(layout benchmarkLayout) (*Hash[int, float64], []geom.Box[floa
 	return h, boxes
 }
 
-// benchmarkSegment returns a segment of a few cells from one of the boxes.
-func benchmarkSegment(boxes []geom.Box[float64], i int) geom.Segment[float64] {
-	start := boxes[i%len(boxes)].Min
+// benchmarkSegment is a way to draw the i-th segment of a benchmark from the boxes stored.
+type benchmarkSegment struct {
+	name    string
+	segment func(boxes []geom.Box[float64], i int) geom.Segment[float64]
+}
 
-	return geom.Seg(start, start.Add(geom.Vec(150.0, 90)))
+// benchmarkSegments are the segments the cast benchmarks run with: a few cells from one of the
+// boxes, and from one box to the next, in another cluster where the layout has them.
+var benchmarkSegments = []benchmarkSegment{
+	{"short", func(boxes []geom.Box[float64], i int) geom.Segment[float64] {
+		start := boxes[i%len(boxes)].Min
+
+		return geom.Seg(start, start.Add(geom.Vec(150.0, 90)))
+	}},
+	{"long", func(boxes []geom.Box[float64], i int) geom.Segment[float64] {
+		return geom.Seg(boxes[i%len(boxes)].Min, boxes[(i+1)%len(boxes)].Min)
+	}},
 }

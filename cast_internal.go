@@ -4,7 +4,8 @@ import (
 	geom "github.com/gravitton/geometry"
 )
 
-// t from from to to, clipped to the occupied cells grown by the margin.
+// cast is the walk of the points origin + t·direction for t from from to to, clipped to the
+// occupied cells grown by the margin.
 //
 // The walk takes the rows in the order the cast crosses them, and in each row the columns the cast
 // passes within the margin, in the order it passes them. Every row's columns lie on the far side of
