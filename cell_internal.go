@@ -87,15 +87,10 @@ func column(v, size float64) int {
 	return clampCell(math.Floor(v / size))
 }
 
-// floorDiv returns the cell of an integer coordinate exactly, where a float64 division can round
-// a coordinate on a border into the cell beside it.
-func floorDiv(v, size int64) int {
-	q := v / size
-	if v%size < 0 {
-		q--
-	}
-
-	return clampCell(float64(q))
+// columnExact returns the index of the cell an integer coordinate is in, exactly, where the float64
+// division of column can round a coordinate on a border into the cell beside it.
+func columnExact(v, size int64) int {
+	return clampCell(float64(geom.FloorDiv(v, size)))
 }
 
 // tolerance returns the margin a box is grown by before its cells are taken: four times the

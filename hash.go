@@ -191,8 +191,8 @@ func (h *Hash[K, T]) rangeOf(box geom.Box[T]) cellRange {
 		size := int64(h.cellSize)
 
 		return cellRange{
-			cell{floorDiv(int64(box.Min.X), size), floorDiv(int64(box.Min.Y), size)},
-			cell{floorDiv(int64(box.Max.X), size), floorDiv(int64(box.Max.Y), size)},
+			cell{columnExact(int64(box.Min.X), size), columnExact(int64(box.Min.Y), size)},
+			cell{columnExact(int64(box.Max.X), size), columnExact(int64(box.Max.Y), size)},
 		}
 	}
 
