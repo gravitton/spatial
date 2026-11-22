@@ -12,11 +12,6 @@ import (
 	geom "github.com/gravitton/geometry"
 )
 
-var (
-	sinkKeys  []int
-	sinkPairs []Pair[int]
-)
-
 func TestNewHash(t *testing.T) {
 	t.Run("keeps the cell size", func(t *testing.T) {
 		assert.Equal(t, NewHash[int](32).CellSize(), 32)
@@ -97,7 +92,7 @@ func TestHash_Set(t *testing.T) {
 		h.Set(1, geom.Bx(geom.Pt(math.Inf(-1), math.Inf(-1)), geom.Pt(math.Inf(1), math.Inf(1))))
 		h.Set(2, geom.Bx(geom.Pt(1.0, 1), geom.Pt(2.0, 2)))
 
-		assertKeys(t, h.QueryPoint(geom.Pt(1.5, 1.5)), []int{1, 2})
+		assert.EqualUnordered(t, h.QueryPoint(geom.Pt(1.5, 1.5)), []int{1, 2})
 		assert.Equal(t, h.Pairs(), []Pair[int]{{1, 2}})
 	})
 	t.Run("keeps the box already stored", func(t *testing.T) {
@@ -122,10 +117,10 @@ func TestHash_Set(t *testing.T) {
 		h.Set(1, b)
 		h.Set(1, a)
 
-		assert.Equal(t, testing.AllocsPerRun(100, func() {
+		assert.Allocates(t, func() {
 			h.Set(1, b)
 			h.Set(1, a)
-		}), 0.0)
+		}, 0)
 	})
 }
 
@@ -174,8 +169,8 @@ func TestHash_Delete(t *testing.T) {
 		h.Delete(1)
 		h.Delete(2)
 
-		assertKeys(t, h.QueryPoint(geom.Pt(4, 4)), []int{3, 4})
-		assertKeys(t, h.QueryPoint(geom.Pt(500, 500)), []int{4})
+		assert.EqualUnordered(t, h.QueryPoint(geom.Pt(4, 4)), []int{3, 4})
+		assert.EqualUnordered(t, h.QueryPoint(geom.Pt(500, 500)), []int{4})
 		assert.Equal(t, h.Pairs(), []Pair[int]{{4, 3}})
 	})
 	t.Run("allocates nothing", func(t *testing.T) {
@@ -185,10 +180,10 @@ func TestHash_Delete(t *testing.T) {
 		h.Delete(1)
 		h.Set(1, box)
 
-		assert.Equal(t, testing.AllocsPerRun(100, func() {
+		assert.Allocates(t, func() {
 			h.Delete(1)
 			h.Set(1, box)
-		}), 0.0)
+		}, 0)
 	})
 }
 
@@ -264,16 +259,16 @@ func TestHash_QueryBox(t *testing.T) {
 	h.Set(3, geom.Bx(geom.Pt(0, 0), geom.Pt(1000, 1000)))
 
 	t.Run("returns the keys whose box touches the given one", func(t *testing.T) {
-		assertKeys(t, h.QueryBox(geom.Bx(geom.Pt(5, 5), geom.Pt(6, 6))), []int{1, 3})
+		assert.EqualUnordered(t, h.QueryBox(geom.Bx(geom.Pt(5, 5), geom.Pt(6, 6))), []int{1, 3})
 	})
 	t.Run("returns a key touching at an edge", func(t *testing.T) {
-		assertKeys(t, h.QueryBox(geom.Bx(geom.Pt(10, -5), geom.Pt(12, 0))), []int{1, 3})
+		assert.EqualUnordered(t, h.QueryBox(geom.Bx(geom.Pt(10, -5), geom.Pt(12, 0))), []int{1, 3})
 	})
 	t.Run("returns a key at negative coordinates", func(t *testing.T) {
-		assertKeys(t, h.QueryBox(geom.Bx(geom.Pt(-30, -30), geom.Pt(-20, -20))), []int{2})
+		assert.EqualUnordered(t, h.QueryBox(geom.Bx(geom.Pt(-30, -30), geom.Pt(-20, -20))), []int{2})
 	})
 	t.Run("returns a key once over many cells", func(t *testing.T) {
-		assertKeys(t, h.QueryBox(geom.Bx(geom.Pt(-100, -100), geom.Pt(100, 100))), []int{1, 2, 3})
+		assert.EqualUnordered(t, h.QueryBox(geom.Bx(geom.Pt(-100, -100), geom.Pt(100, 100))), []int{1, 2, 3})
 	})
 	t.Run("returns nothing where no box is", func(t *testing.T) {
 		assert.Empty(t, h.QueryBox(geom.Bx(geom.Pt(-100, 100), geom.Pt(-50, 200))))
@@ -326,13 +321,13 @@ func TestHash_AppendQueryBox(t *testing.T) {
 	t.Run("appends the keys of QueryBox", func(t *testing.T) {
 		keys := h.AppendQueryBox([]int{7}, query)
 		assert.Equal(t, keys[0], 7)
-		assertKeys(t, keys[1:], h.QueryBox(query))
+		assert.EqualUnordered(t, keys[1:], h.QueryBox(query))
 	})
 	t.Run("allocates nothing with room", func(t *testing.T) {
 		dst := make([]int, 0, 8)
-		assert.Equal(t, testing.AllocsPerRun(100, func() {
+		assert.Allocates(t, func() {
 			sinkKeys = h.AppendQueryBox(dst, query)
-		}), 0.0)
+		}, 0)
 	})
 }
 
@@ -370,8 +365,8 @@ func TestHash_QueryPoint(t *testing.T) {
 	h.Set(2, geom.Bx(geom.Pt(10, 10), geom.Pt(20, 20)))
 
 	t.Run("returns the keys whose box contains the point", func(t *testing.T) {
-		assertKeys(t, h.QueryPoint(geom.Pt(5, 5)), []int{1})
-		assertKeys(t, h.QueryPoint(geom.Pt(10, 10)), []int{1, 2})
+		assert.EqualUnordered(t, h.QueryPoint(geom.Pt(5, 5)), []int{1})
+		assert.EqualUnordered(t, h.QueryPoint(geom.Pt(10, 10)), []int{1, 2})
 		assert.Empty(t, h.QueryPoint(geom.Pt(25, 5)))
 	})
 	t.Run("agrees with a linear scan", func(t *testing.T) {
@@ -392,9 +387,9 @@ func TestHash_AppendQueryPoint(t *testing.T) {
 	})
 	t.Run("allocates nothing with room", func(t *testing.T) {
 		dst := make([]int, 0, 8)
-		assert.Equal(t, testing.AllocsPerRun(100, func() {
+		assert.Allocates(t, func() {
 			sinkKeys = h.AppendQueryPoint(dst, geom.Pt(5, 5))
-		}), 0.0)
+		}, 0)
 	})
 }
 
@@ -406,16 +401,16 @@ func TestHash_QuerySegment(t *testing.T) {
 	h.Set(4, geom.Bx(geom.Pt(-1000, 1000), geom.Pt(1000, 2000)))
 
 	t.Run("returns the keys whose box the segment meets", func(t *testing.T) {
-		assertKeys(t, slices.Collect(h.QuerySegment(geom.Seg(geom.Pt(0, 5), geom.Pt(55, 5)))), []int{1, 2})
-		assertKeys(t, slices.Collect(h.QuerySegment(geom.Seg(geom.Pt(55, 5), geom.Pt(40, 5)))), []int{2})
-		assertKeys(t, slices.Collect(h.QuerySegment(geom.Seg(geom.Pt(5, 0), geom.Pt(5, 1500)))), []int{3, 4})
+		assert.EqualUnordered(t, slices.Collect(h.QuerySegment(geom.Seg(geom.Pt(0, 5), geom.Pt(55, 5)))), []int{1, 2})
+		assert.EqualUnordered(t, slices.Collect(h.QuerySegment(geom.Seg(geom.Pt(55, 5), geom.Pt(40, 5)))), []int{2})
+		assert.EqualUnordered(t, slices.Collect(h.QuerySegment(geom.Seg(geom.Pt(5, 0), geom.Pt(5, 1500)))), []int{3, 4})
 	})
 	t.Run("returns a key touched at a corner", func(t *testing.T) {
-		assertKeys(t, slices.Collect(h.QuerySegment(geom.Seg(geom.Pt(40, -10), geom.Pt(20, 10)))), []int{1})
-		assertKeys(t, slices.Collect(h.QuerySegment(geom.Seg(geom.Pt(40, 0), geom.Pt(30, 10)))), []int{1})
+		assert.EqualUnordered(t, slices.Collect(h.QuerySegment(geom.Seg(geom.Pt(40, -10), geom.Pt(20, 10)))), []int{1})
+		assert.EqualUnordered(t, slices.Collect(h.QuerySegment(geom.Seg(geom.Pt(40, 0), geom.Pt(30, 10)))), []int{1})
 	})
 	t.Run("returns a key for a segment of zero length", func(t *testing.T) {
-		assertKeys(t, slices.Collect(h.QuerySegment(geom.Seg(geom.Pt(25, 5), geom.Pt(25, 5)))), []int{1})
+		assert.EqualUnordered(t, slices.Collect(h.QuerySegment(geom.Seg(geom.Pt(25, 5), geom.Pt(25, 5)))), []int{1})
 	})
 	t.Run("returns the keys across rows and columns of no key", func(t *testing.T) {
 		h := NewHash[int](10)
@@ -424,11 +419,11 @@ func TestHash_QuerySegment(t *testing.T) {
 		h.Set(3, geom.Bx(geom.Pt(0, 100), geom.Pt(15, 115)))
 		h.Set(4, geom.Bx(geom.Pt(100, 0), geom.Pt(115, 15)))
 
-		assertKeys(t, slices.Collect(h.QuerySegment(geom.Seg(geom.Pt(5, 5), geom.Pt(105, 105)))), []int{1, 2})
-		assertKeys(t, slices.Collect(h.QuerySegment(geom.Seg(geom.Pt(105, 105), geom.Pt(5, 5)))), []int{1, 2})
-		assertKeys(t, slices.Collect(h.QuerySegment(geom.Seg(geom.Pt(105, 5), geom.Pt(5, 105)))), []int{3, 4})
-		assertKeys(t, slices.Collect(h.QuerySegment(geom.Seg(geom.Pt(5, 5), geom.Pt(105, 5)))), []int{1, 4})
-		assertKeys(t, slices.Collect(h.QuerySegment(geom.Seg(geom.Pt(5, 105), geom.Pt(5, 5)))), []int{1, 3})
+		assert.EqualUnordered(t, slices.Collect(h.QuerySegment(geom.Seg(geom.Pt(5, 5), geom.Pt(105, 105)))), []int{1, 2})
+		assert.EqualUnordered(t, slices.Collect(h.QuerySegment(geom.Seg(geom.Pt(105, 105), geom.Pt(5, 5)))), []int{1, 2})
+		assert.EqualUnordered(t, slices.Collect(h.QuerySegment(geom.Seg(geom.Pt(105, 5), geom.Pt(5, 105)))), []int{3, 4})
+		assert.EqualUnordered(t, slices.Collect(h.QuerySegment(geom.Seg(geom.Pt(5, 5), geom.Pt(105, 5)))), []int{1, 4})
+		assert.EqualUnordered(t, slices.Collect(h.QuerySegment(geom.Seg(geom.Pt(5, 105), geom.Pt(5, 5)))), []int{1, 3})
 	})
 	t.Run("returns no key moved or deleted from the rows and columns it held", func(t *testing.T) {
 		h := NewHash[int](10)
@@ -438,8 +433,8 @@ func TestHash_QuerySegment(t *testing.T) {
 		h.Set(2, geom.Bx(geom.Pt(200, 200), geom.Pt(215, 215)))
 		h.Delete(3)
 
-		assertKeys(t, slices.Collect(h.QuerySegment(geom.Seg(geom.Pt(5, 5), geom.Pt(205, 205)))), []int{1, 2})
-		assertKeys(t, slices.Collect(h.QuerySegment(geom.Seg(geom.Pt(105, 5), geom.Pt(105, 105)))), []int{})
+		assert.EqualUnordered(t, slices.Collect(h.QuerySegment(geom.Seg(geom.Pt(5, 5), geom.Pt(205, 205)))), []int{1, 2})
+		assert.EqualUnordered(t, slices.Collect(h.QuerySegment(geom.Seg(geom.Pt(105, 5), geom.Pt(105, 105)))), []int{})
 	})
 	t.Run("returns nothing where the segment misses every cell", func(t *testing.T) {
 		assert.Empty(t, slices.Collect(h.QuerySegment(geom.Seg(geom.Pt(-50, -50), geom.Pt(-40, 100)))))
@@ -482,13 +477,13 @@ func TestHash_AppendQuerySegment(t *testing.T) {
 	t.Run("appends the keys of QuerySegment", func(t *testing.T) {
 		keys := h.AppendQuerySegment([]int{7}, segment)
 		assert.Equal(t, keys[0], 7)
-		assertKeys(t, keys[1:], slices.Collect(h.QuerySegment(segment)))
+		assert.EqualUnordered(t, keys[1:], slices.Collect(h.QuerySegment(segment)))
 	})
 	t.Run("allocates nothing with room", func(t *testing.T) {
 		dst := make([]int, 0, 8)
-		assert.Equal(t, testing.AllocsPerRun(100, func() {
+		assert.Allocates(t, func() {
 			sinkKeys = h.AppendQuerySegment(dst, segment)
-		}), 0.0)
+		}, 0)
 	})
 }
 
@@ -529,14 +524,14 @@ func TestHash_QueryRay(t *testing.T) {
 	h.Set(3, geom.Bx(geom.Pt(0, 40), geom.Pt(10, 50)))
 
 	t.Run("returns the keys whose box the ray meets", func(t *testing.T) {
-		assertKeys(t, slices.Collect(h.QueryRay(geom.Ry(geom.Pt(0, 5), geom.Vec(1, 0)))), []int{1, 2})
-		assertKeys(t, slices.Collect(h.QueryRay(geom.Ry(geom.Pt(40, 5), geom.Vec(1, 0)))), []int{2})
-		assertKeys(t, slices.Collect(h.QueryRay(geom.Ry(geom.Pt(40, 5), geom.Vec(-1, 0)))), []int{1})
-		assertKeys(t, slices.Collect(h.QueryRay(geom.Ry(geom.Pt(-5, -5), geom.Vec(1, 1)))), []int{})
-		assertKeys(t, slices.Collect(h.QueryRay(geom.Ry(geom.Pt(-40, -40), geom.Vec(1, 2)))), []int{3})
+		assert.EqualUnordered(t, slices.Collect(h.QueryRay(geom.Ry(geom.Pt(0, 5), geom.Vec(1, 0)))), []int{1, 2})
+		assert.EqualUnordered(t, slices.Collect(h.QueryRay(geom.Ry(geom.Pt(40, 5), geom.Vec(1, 0)))), []int{2})
+		assert.EqualUnordered(t, slices.Collect(h.QueryRay(geom.Ry(geom.Pt(40, 5), geom.Vec(-1, 0)))), []int{1})
+		assert.EqualUnordered(t, slices.Collect(h.QueryRay(geom.Ry(geom.Pt(-5, -5), geom.Vec(1, 1)))), []int{})
+		assert.EqualUnordered(t, slices.Collect(h.QueryRay(geom.Ry(geom.Pt(-40, -40), geom.Vec(1, 2)))), []int{3})
 	})
 	t.Run("returns the keys at the origin of a ray of zero vector", func(t *testing.T) {
-		assertKeys(t, slices.Collect(h.QueryRay(geom.Ry(geom.Pt(25, 5), geom.Vec(0, 0)))), []int{1})
+		assert.EqualUnordered(t, slices.Collect(h.QueryRay(geom.Ry(geom.Pt(25, 5), geom.Vec(0, 0)))), []int{1})
 		assert.Empty(t, slices.Collect(h.QueryRay(geom.Ry(geom.Pt(-25, 5), geom.Vec(0, 0)))))
 	})
 	t.Run("returns nothing for a ray away from every cell", func(t *testing.T) {
@@ -561,13 +556,13 @@ func TestHash_AppendQueryRay(t *testing.T) {
 	t.Run("appends the keys of QueryRay", func(t *testing.T) {
 		keys := h.AppendQueryRay([]int{7}, ray)
 		assert.Equal(t, keys[0], 7)
-		assertKeys(t, keys[1:], slices.Collect(h.QueryRay(ray)))
+		assert.EqualUnordered(t, keys[1:], slices.Collect(h.QueryRay(ray)))
 	})
 	t.Run("allocates nothing with room", func(t *testing.T) {
 		dst := make([]int, 0, 8)
-		assert.Equal(t, testing.AllocsPerRun(100, func() {
+		assert.Allocates(t, func() {
 			sinkKeys = h.AppendQueryRay(dst, ray)
-		}), 0.0)
+		}, 0)
 	})
 }
 
@@ -605,9 +600,9 @@ func TestHash_AppendPairs(t *testing.T) {
 	})
 	t.Run("allocates nothing with room", func(t *testing.T) {
 		dst := make([]Pair[int], 0, 8)
-		assert.Equal(t, testing.AllocsPerRun(100, func() {
+		assert.Allocates(t, func() {
 			sinkPairs = h.AppendPairs(dst)
-		}), 0.0)
+		}, 0)
 	})
 }
 
@@ -645,12 +640,12 @@ func FuzzHash(f *testing.F) {
 				delete(stored, key)
 			case 3:
 				query := randomBox(rng, 4.0)
-				assertKeys(t, h.QueryBox(query), scanKeys(stored, func(box geom.Box[float64]) bool {
+				assert.EqualUnordered(t, h.QueryBox(query), scanKeys(stored, func(box geom.Box[float64]) bool {
 					return box.IntersectsBox(query)
 				}))
 			default:
 				query := randomSegment(rng, 4.0)
-				assertKeys(t, slices.Collect(h.QuerySegment(query)), scanKeys(stored, func(box geom.Box[float64]) bool {
+				assert.EqualUnordered(t, slices.Collect(h.QuerySegment(query)), scanKeys(stored, func(box geom.Box[float64]) bool {
 					return query.IntersectsBox(box)
 				}))
 			}
@@ -757,17 +752,11 @@ func ExampleHash_AppendPairs() {
 	// 1 2
 }
 
-// fixture is a hash filled with random boxes by Set and Delete, with checks of each query against
-// a linear scan of the boxes it stores, made in the type of the hash. The queries are given in
-// float64 and cast into that type.
-type fixture struct {
-	rng          *rand.Rand
-	cellSize     float64
-	checkBox     func(t *testing.T, box geom.Box[float64])
-	checkPoint   func(t *testing.T, point geom.Point[float64])
-	checkSegment func(t *testing.T, segment geom.Segment[float64])
-	checkRay     func(t *testing.T, ray geom.Ray[float64])
-	checkPairs   func(t *testing.T)
+// assertPairs asserts that the pairs are the expected ones, each once in either order.
+func assertPairs(t *testing.T, actual, expected []Pair[int]) {
+	t.Helper()
+
+	assert.EqualUnordered(t, orderedPairsOf(actual), orderedPairsOf(expected))
 }
 
 // forEachType runs the test on a fixture of int, float32 and float64.
@@ -781,98 +770,6 @@ func forEachType(t *testing.T, test func(t *testing.T, f fixture)) {
 	t.Run("float64", func(t *testing.T) {
 		test(t, newFixture[float64](1.5))
 	})
-}
-
-// newFixture returns a fixture of a hash over T with the cell size.
-func newFixture[T geom.Number](cellSize T) fixture {
-	rng := rand.New(rand.NewPCG(1, 2))
-	h := NewHash[int](cellSize)
-	stored := map[int]geom.Box[T]{}
-
-	for range 600 {
-		key := rng.IntN(300)
-		if rng.IntN(5) == 0 {
-			h.Delete(key)
-			delete(stored, key)
-			continue
-		}
-
-		box := castBox[T](randomBox(rng, float64(cellSize)))
-		h.Set(key, box)
-		stored[key] = box
-	}
-
-	return fixture{
-		rng:      rng,
-		cellSize: float64(cellSize),
-		checkBox: func(t *testing.T, box geom.Box[float64]) {
-			query := castBox[T](box)
-			assertKeys(t, h.QueryBox(query), scanKeys(stored, func(box geom.Box[T]) bool {
-				return box.IntersectsBox(query)
-			}))
-		},
-		checkPoint: func(t *testing.T, point geom.Point[float64]) {
-			query := castPoint[T](point)
-			assertKeys(t, h.QueryPoint(query), scanKeys(stored, func(box geom.Box[T]) bool {
-				return box.Contains(query)
-			}))
-		},
-		checkSegment: func(t *testing.T, segment geom.Segment[float64]) {
-			query := geom.Segment[T]{Start: castPoint[T](segment.Start), End: castPoint[T](segment.End)}
-			assertKeys(t, slices.Collect(h.QuerySegment(query)), scanKeys(stored, func(box geom.Box[T]) bool {
-				return query.IntersectsBox(box)
-			}))
-		},
-		checkRay: func(t *testing.T, ray geom.Ray[float64]) {
-			query := geom.Ray[T]{Origin: castPoint[T](ray.Origin), Vector: geom.Vector[T](castPoint[T](geom.Point[float64](ray.Vector)))}
-			assertKeys(t, slices.Collect(h.QueryRay(query)), scanKeys(stored, func(box geom.Box[T]) bool {
-				return query.IntersectsBox(box)
-			}))
-		},
-		checkPairs: func(t *testing.T) {
-			var expected []Pair[int]
-			for a, boxA := range stored {
-				for b, boxB := range stored {
-					if a < b && boxA.IntersectsBox(boxB) {
-						expected = append(expected, Pair[int]{a, b})
-					}
-				}
-			}
-
-			assertPairs(t, h.Pairs(), expected)
-		},
-	}
-}
-
-// randomBox returns a box of random size at a random place, often on a cell border or within the
-// tolerance of one, sometimes large, NaN or infinite.
-func randomBox(rng *rand.Rand, cellSize float64) geom.Box[float64] {
-	switch rng.IntN(40) {
-	case 0:
-		return geom.Bx(geom.Pt(math.NaN(), 0), randomPoint(rng, cellSize))
-	case 1:
-		return geom.Bx(geom.Pt(math.Inf(-1), -cellSize), randomPoint(rng, cellSize))
-	case 2:
-		return geom.Bx(randomPoint(rng, cellSize), randomPoint(rng, cellSize).Add(geom.Vec(30*cellSize, 30*cellSize)))
-	}
-
-	a := randomPoint(rng, cellSize)
-	size := []float64{0, cellSize / 3, cellSize, 2.5 * cellSize}[rng.IntN(4)]
-
-	return geom.Bx(a, a.Add(geom.Vec(size*rng.Float64(), size*rng.Float64())))
-}
-
-// randomSegment returns a segment between random points, sometimes with a NaN or infinite end.
-func randomSegment(rng *rand.Rand, cellSize float64) geom.Segment[float64] {
-	end := randomPoint(rng, cellSize)
-	switch rng.IntN(40) {
-	case 0:
-		end.X = math.NaN()
-	case 1:
-		end.Y = math.Inf(-1)
-	}
-
-	return geom.Seg(randomPoint(rng, cellSize), end)
 }
 
 // randomRay returns a ray from a random point along an axis, a diagonal, any direction, or of
@@ -916,6 +813,98 @@ func randomCoordinate(rng *rand.Rand, cellSize float64) float64 {
 	}
 }
 
+// fixture is a hash filled with random boxes by Set and Delete, with checks of each query against
+// a linear scan of the boxes it stores, made in the type of the hash. The queries are given in
+// float64 and cast into that type.
+type fixture struct {
+	rng          *rand.Rand
+	cellSize     float64
+	checkBox     func(t *testing.T, box geom.Box[float64])
+	checkPoint   func(t *testing.T, point geom.Point[float64])
+	checkSegment func(t *testing.T, segment geom.Segment[float64])
+	checkRay     func(t *testing.T, ray geom.Ray[float64])
+	checkPairs   func(t *testing.T)
+}
+
+// newFixture returns a fixture of a hash over T with the cell size.
+func newFixture[T geom.Number](cellSize T) fixture {
+	rng := rand.New(rand.NewPCG(1, 2))
+	h := NewHash[int](cellSize)
+	stored := map[int]geom.Box[T]{}
+
+	for range 600 {
+		key := rng.IntN(300)
+		if rng.IntN(5) == 0 {
+			h.Delete(key)
+			delete(stored, key)
+			continue
+		}
+
+		box := castBox[T](randomBox(rng, float64(cellSize)))
+		h.Set(key, box)
+		stored[key] = box
+	}
+
+	return fixture{
+		rng:      rng,
+		cellSize: float64(cellSize),
+		checkBox: func(t *testing.T, box geom.Box[float64]) {
+			query := castBox[T](box)
+			assert.EqualUnordered(t, h.QueryBox(query), scanKeys(stored, func(box geom.Box[T]) bool {
+				return box.IntersectsBox(query)
+			}))
+		},
+		checkPoint: func(t *testing.T, point geom.Point[float64]) {
+			query := castPoint[T](point)
+			assert.EqualUnordered(t, h.QueryPoint(query), scanKeys(stored, func(box geom.Box[T]) bool {
+				return box.Contains(query)
+			}))
+		},
+		checkSegment: func(t *testing.T, segment geom.Segment[float64]) {
+			query := geom.Segment[T]{Start: castPoint[T](segment.Start), End: castPoint[T](segment.End)}
+			assert.EqualUnordered(t, slices.Collect(h.QuerySegment(query)), scanKeys(stored, func(box geom.Box[T]) bool {
+				return query.IntersectsBox(box)
+			}))
+		},
+		checkRay: func(t *testing.T, ray geom.Ray[float64]) {
+			query := geom.Ray[T]{Origin: castPoint[T](ray.Origin), Vector: geom.Vector[T](castPoint[T](geom.Point[float64](ray.Vector)))}
+			assert.EqualUnordered(t, slices.Collect(h.QueryRay(query)), scanKeys(stored, func(box geom.Box[T]) bool {
+				return query.IntersectsBox(box)
+			}))
+		},
+		checkPairs: func(t *testing.T) {
+			var expected []Pair[int]
+			for a, boxA := range stored {
+				for b, boxB := range stored {
+					if a < b && boxA.IntersectsBox(boxB) {
+						expected = append(expected, Pair[int]{a, b})
+					}
+				}
+			}
+
+			assertPairs(t, h.Pairs(), expected)
+		},
+	}
+}
+
+// randomBox returns a box of random size at a random place, often on a cell border or within the
+// tolerance of one, sometimes large, NaN or infinite.
+func randomBox(rng *rand.Rand, cellSize float64) geom.Box[float64] {
+	switch rng.IntN(40) {
+	case 0:
+		return geom.Bx(geom.Pt(math.NaN(), 0), randomPoint(rng, cellSize))
+	case 1:
+		return geom.Bx(geom.Pt(math.Inf(-1), -cellSize), randomPoint(rng, cellSize))
+	case 2:
+		return geom.Bx(randomPoint(rng, cellSize), randomPoint(rng, cellSize).Add(geom.Vec(30*cellSize, 30*cellSize)))
+	}
+
+	a := randomPoint(rng, cellSize)
+	size := []float64{0, cellSize / 3, cellSize, 2.5 * cellSize}[rng.IntN(4)]
+
+	return geom.Bx(a, a.Add(geom.Vec(size*rng.Float64(), size*rng.Float64())))
+}
+
 // castBox returns the box with each coordinate cast into T, rounded for an integer T, where an
 // integer T keeps a coordinate that is no number at zero.
 func castBox[T geom.Number](box geom.Box[float64]) geom.Box[T] {
@@ -948,36 +937,17 @@ func scanKeys[T geom.Number](stored map[int]geom.Box[T], test func(geom.Box[T]) 
 	return keys
 }
 
-// assertKeys asserts that a query returned the expected keys, each once.
-func assertKeys(t *testing.T, actual, expected []int) {
-	t.Helper()
-
-	slices.Sort(actual)
-	slices.Sort(expected)
-	assert.Equal(t, fmt.Sprint(actual), fmt.Sprint(expected))
-}
-
-// assertPairs asserts that the pairs are the expected ones, each once in either order.
-func assertPairs(t *testing.T, actual, expected []Pair[int]) {
-	t.Helper()
-
-	normalize := func(pairs []Pair[int]) string {
-		normal := make([][2]int, len(pairs))
-		for i, pair := range pairs {
-			normal[i] = [2]int{min(pair.A, pair.B), max(pair.A, pair.B)}
-		}
-		slices.SortFunc(normal, func(a, b [2]int) int {
-			if a[0] != b[0] {
-				return a[0] - b[0]
-			}
-
-			return a[1] - b[1]
-		})
-
-		return fmt.Sprint(normal)
+// randomSegment returns a segment between random points, sometimes with a NaN or infinite end.
+func randomSegment(rng *rand.Rand, cellSize float64) geom.Segment[float64] {
+	end := randomPoint(rng, cellSize)
+	switch rng.IntN(40) {
+	case 0:
+		end.X = math.NaN()
+	case 1:
+		end.Y = math.Inf(-1)
 	}
 
-	assert.Equal(t, normalize(actual), normalize(expected))
+	return geom.Seg(randomPoint(rng, cellSize), end)
 }
 
 // benchmarkLayout is a number of keys of about a cell, spread uniformly over a square world that
@@ -987,17 +957,6 @@ type benchmarkLayout struct {
 	n         int
 	clustered bool
 	scatter   float64
-}
-
-// benchmarkLayouts are the layouts the benchmarks run at.
-var benchmarkLayouts = []benchmarkLayout{
-	{"uniform/30", 30, false, 1},
-	{"uniform/300", 300, false, 1},
-	{"uniform/30000", 30000, false, 1},
-	{"clustered/300", 300, true, 1},
-	{"clustered/30000", 30000, true, 1},
-	{"sparse/300", 300, true, 16},
-	{"sparse/30000", 30000, true, 16},
 }
 
 // benchmarkHash returns a hash of the layout and the boxes it stores.
@@ -1023,21 +982,47 @@ func benchmarkHash(layout benchmarkLayout) (*Hash[int, float64], []geom.Box[floa
 	return h, boxes
 }
 
+// orderedPairsOf returns the pairs, the lesser key of each first.
+func orderedPairsOf(pairs []Pair[int]) []Pair[int] {
+	ordered := make([]Pair[int], len(pairs))
+	for i, pair := range pairs {
+		ordered[i] = Pair[int]{min(pair.A, pair.B), max(pair.A, pair.B)}
+	}
+
+	return ordered
+}
+
 // benchmarkSegment is a way to draw the i-th segment of a benchmark from the boxes stored.
 type benchmarkSegment struct {
 	name    string
 	segment func(boxes []geom.Box[float64], i int) geom.Segment[float64]
 }
 
-// benchmarkSegments are the segments the cast benchmarks run with: a few cells from one of the
-// boxes, and from one box to the next, in another cluster where the layout has them.
-var benchmarkSegments = []benchmarkSegment{
-	{"short", func(boxes []geom.Box[float64], i int) geom.Segment[float64] {
-		start := boxes[i%len(boxes)].Min
+var (
+	sinkKeys  []int
+	sinkPairs []Pair[int]
 
-		return geom.Seg(start, start.Add(geom.Vec(150.0, 90)))
-	}},
-	{"long", func(boxes []geom.Box[float64], i int) geom.Segment[float64] {
-		return geom.Seg(boxes[i%len(boxes)].Min, boxes[(i+1)%len(boxes)].Min)
-	}},
-}
+	// benchmarkSegments are the segments the cast benchmarks run with: a few cells from one of the
+	// boxes, and from one box to the next, in another cluster where the layout has them.
+	benchmarkSegments = []benchmarkSegment{
+		{"short", func(boxes []geom.Box[float64], i int) geom.Segment[float64] {
+			start := boxes[i%len(boxes)].Min
+
+			return geom.Seg(start, start.Add(geom.Vec(150.0, 90)))
+		}},
+		{"long", func(boxes []geom.Box[float64], i int) geom.Segment[float64] {
+			return geom.Seg(boxes[i%len(boxes)].Min, boxes[(i+1)%len(boxes)].Min)
+		}},
+	}
+
+	// benchmarkLayouts are the layouts the benchmarks run at.
+	benchmarkLayouts = []benchmarkLayout{
+		{"uniform/30", 30, false, 1},
+		{"uniform/300", 300, false, 1},
+		{"uniform/30000", 30000, false, 1},
+		{"clustered/300", 300, true, 1},
+		{"clustered/30000", 30000, true, 1},
+		{"sparse/300", 300, true, 16},
+		{"sparse/30000", 30000, true, 16},
+	}
+)

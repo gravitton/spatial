@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ## [Unreleased](https://github.com/gravitton/spatial/compare/v0.1.1...main)
 
+### Changed
+- Require `geometry` v1.20.1
+- Require `assert` v1.9.0 for the tests
+
 ## [v0.1.1](https://github.com/gravitton/spatial/compare/v0.1.0...v0.1.1) (2026-11-18)
 
 ### Changed
