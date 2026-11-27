@@ -10,6 +10,8 @@ and this project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.
 
 ### Changed
 - Require `geometry` v1.22.0
+- Every query and `Pairs` give the same results in the same order on every run for the same changes, where `Pairs` and a box query over many cells followed the order of a map
+- `Clear` keeps the lists of its cells, so filling the same cells again allocates nothing
 
 ## [v0.1.2](https://github.com/gravitton/spatial/compare/v0.1.1...v0.1.2) (2026-11-22)
 

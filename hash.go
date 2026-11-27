@@ -4,9 +4,17 @@ import (
 	"fmt"
 	"iter"
 	"math"
+	"slices"
 
 	geom "github.com/gravitton/geometry"
 )
+
+// bucket is the slots of the keys in one cell, kept in a slice so that walking every cell follows
+// the changes made to the hash rather than the order of a map.
+type bucket struct {
+	cell  cell
+	slots slotList
+}
 
 // Hash is a uniform spatial hash: keys stored with their boxes in square cells of one size over an
 // unbounded plane.
@@ -16,8 +24,8 @@ type Hash[K comparable, T geom.Number] struct {
 	cellSize T
 	slots    []slot[K, T]
 	index    map[K]int
-	cells    map[cell]slotList
-	spare    []slotList
+	cells    map[cell]int
+	buckets  []bucket
 	large    slotList
 	occupied cellRange
 }
@@ -32,7 +40,7 @@ func NewHash[K comparable, T geom.Number](cellSize T) *Hash[K, T] {
 	return &Hash[K, T]{
 		cellSize: cellSize,
 		index:    map[K]int{},
-		cells:    map[cell]slotList{},
+		cells:    map[cell]int{},
 		occupied: noCells,
 	}
 }
@@ -96,7 +104,7 @@ func (h *Hash[K, T]) Clear() {
 	h.slots = h.slots[:0]
 	clear(h.index)
 	clear(h.cells)
-	h.spare = nil
+	h.buckets = h.buckets[:0]
 	h.large = h.large[:0]
 	h.occupied = noCells
 }
@@ -117,19 +125,30 @@ func (h *Hash[K, T]) place(i int, box geom.Box[T]) {
 	h.occupied = h.occupied.union(cells)
 	for y := cells.min.y; y <= cells.max.y; y++ {
 		for x := cells.min.x; x <= cells.max.x; x++ {
-			c := cell{x, y}
-			list, ok := h.cells[c]
-			if !ok && len(h.spare) > 0 {
-				list = h.spare[len(h.spare)-1]
-				h.spare = h.spare[:len(h.spare)-1]
-			}
-			h.cells[c] = append(list, i)
+			b := h.fill(cell{x, y})
+			b.slots = append(b.slots, i)
 		}
 	}
 }
 
-// unplace removes the slot's key from the cells it is over. A cell left empty is dropped and its
-// list kept for the next cell to fill, so a key moving across a border allocates nothing.
+// fill returns the bucket of the cell, taking the next one for a cell that held no key, with the
+// list of a cell emptied before where one is kept past the end.
+func (h *Hash[K, T]) fill(c cell) *bucket {
+	if n, ok := h.cells[c]; ok {
+		return &h.buckets[n]
+	}
+
+	n := len(h.buckets)
+	h.cells[c] = n
+	h.buckets = slices.Grow(h.buckets, 1)[:n+1]
+
+	b := &h.buckets[n]
+	b.cell, b.slots = c, b.slots[:0]
+
+	return b
+}
+
+// unplace removes the slot's key from the cells it is over.
 func (h *Hash[K, T]) unplace(i int) {
 	s := &h.slots[i]
 	if s.large {
@@ -140,16 +159,29 @@ func (h *Hash[K, T]) unplace(i int) {
 
 	for y := s.cells.min.y; y <= s.cells.max.y; y++ {
 		for x := s.cells.min.x; x <= s.cells.max.x; x++ {
-			c := cell{x, y}
-			list := h.cells[c].without(i)
-			if len(list) == 0 {
-				delete(h.cells, c)
-				h.spare = append(h.spare, list)
-				continue
+			n := h.cells[cell{x, y}]
+			b := &h.buckets[n]
+			b.slots = b.slots.without(i)
+			if len(b.slots) == 0 {
+				h.drop(n)
 			}
-			h.cells[c] = list
 		}
 	}
+}
+
+// drop removes the emptied bucket and its cell, the last bucket moved into its place. The emptied
+// one is kept past the end, so the next cell to fill takes its list and a key moving across a
+// border allocates nothing.
+func (h *Hash[K, T]) drop(n int) {
+	delete(h.cells, h.buckets[n].cell)
+
+	last := len(h.buckets) - 1
+	if n != last {
+		h.buckets[n], h.buckets[last] = h.buckets[last], h.buckets[n]
+		h.cells[h.buckets[n].cell] = n
+	}
+
+	h.buckets = h.buckets[:last]
 }
 
 // renumber points the lists the slot's key is in from one slot to another.
@@ -163,7 +195,7 @@ func (h *Hash[K, T]) renumber(from, to int) {
 
 	for y := s.cells.min.y; y <= s.cells.max.y; y++ {
 		for x := s.cells.min.x; x <= s.cells.max.x; x++ {
-			h.cells[cell{x, y}].replace(from, to)
+			h.buckets[h.cells[cell{x, y}]].slots.replace(from, to)
 		}
 	}
 }
@@ -270,20 +302,20 @@ func (h *Hash[K, T]) eachTouching(box geom.Box[T], visit func(i int)) {
 		return
 	}
 
-	if cells.area() <= int64(len(h.cells)) {
+	if cells.area() <= int64(len(h.buckets)) {
 		for y := cells.min.y; y <= cells.max.y; y++ {
 			for x := cells.min.x; x <= cells.max.x; x++ {
 				c := cell{x, y}
-				h.eachTouchingIn(c, h.cells[c], cells, box, visit)
+				h.eachTouchingIn(c, h.slotsIn(c), cells, box, visit)
 			}
 		}
 
 		return
 	}
 
-	for c, list := range h.cells {
-		if cells.contains(c) {
-			h.eachTouchingIn(c, list, cells, box, visit)
+	for _, b := range h.buckets {
+		if cells.contains(b.cell) {
+			h.eachTouchingIn(b.cell, b.slots, cells, box, visit)
 		}
 	}
 }
@@ -295,6 +327,15 @@ func (h *Hash[K, T]) eachTouchingIn(c cell, list slotList, cells cellRange, box 
 			visit(i)
 		}
 	}
+}
+
+// slotsIn returns the slots of the keys in the cell, none for a cell that holds no key.
+func (h *Hash[K, T]) slotsIn(c cell) slotList {
+	if n, ok := h.cells[c]; ok {
+		return h.buckets[n].slots
+	}
+
+	return nil
 }
 
 // QueryPoint returns the keys whose box contains the point, in no particular order.
@@ -367,7 +408,7 @@ func (h *Hash[K, T]) walk(origin geom.Point[float64], direction geom.Vector[floa
 		current := c.row(y)
 
 		more := c.cells(y, current, func(at cell) bool {
-			for _, i := range h.cells[at] {
+			for _, i := range h.slotsIn(at) {
 				s := &h.slots[i]
 				if c.enters(s.cells, at, current, previous) && meets(s.box) && !yield(s.key) {
 					return false
@@ -391,12 +432,12 @@ func (h *Hash[K, T]) Pairs() []Pair[K] {
 
 // AppendPairs appends the pairs of Pairs to dst and returns the extended slice.
 func (h *Hash[K, T]) AppendPairs(dst []Pair[K]) []Pair[K] {
-	for c, list := range h.cells {
-		for n, i := range list {
+	for _, filled := range h.buckets {
+		for n, i := range filled.slots {
 			a := &h.slots[i]
-			for _, j := range list[n+1:] {
+			for _, j := range filled.slots[n+1:] {
 				b := &h.slots[j]
-				if a.firstIn(b.cells) == c && a.box.IntersectsBox(b.box) {
+				if a.firstIn(b.cells) == filled.cell && a.box.IntersectsBox(b.box) {
 					dst = append(dst, Pair[K]{a.key, b.key})
 				}
 			}

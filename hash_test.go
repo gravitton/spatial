@@ -188,17 +188,39 @@ func TestHash_Delete(t *testing.T) {
 }
 
 func TestHash_Clear(t *testing.T) {
-	h := NewHash[int](10)
-	h.Set(1, geom.Bx(geom.Pt(1, 1), geom.Pt(4, 4)))
-	h.Set(2, geom.Bx(geom.Pt(0, 0), geom.Pt(1000, 1000)))
-	h.Clear()
+	t.Run("removes every key", func(t *testing.T) {
+		h := NewHash[int](10)
+		h.Set(1, geom.Bx(geom.Pt(1, 1), geom.Pt(4, 4)))
+		h.Set(2, geom.Bx(geom.Pt(0, 0), geom.Pt(1000, 1000)))
+		h.Clear()
 
-	assert.Equal(t, h.Len(), 0)
-	assert.Empty(t, h.QueryPoint(geom.Pt(2, 2)))
-	assert.Empty(t, slices.Collect(h.QueryRay(geom.Ry(geom.Pt(0, 0), geom.Vec(1, 1)))))
+		assert.Equal(t, h.Len(), 0)
+		assert.Empty(t, h.QueryPoint(geom.Pt(2, 2)))
+		assert.Empty(t, slices.Collect(h.QueryRay(geom.Ry(geom.Pt(0, 0), geom.Vec(1, 1)))))
+	})
+	t.Run("stores keys again", func(t *testing.T) {
+		h := NewHash[int](10)
+		h.Set(1, geom.Bx(geom.Pt(1, 1), geom.Pt(4, 4)))
+		h.Clear()
+		h.Set(1, geom.Bx(geom.Pt(1, 1), geom.Pt(4, 4)))
 
-	h.Set(1, geom.Bx(geom.Pt(1, 1), geom.Pt(4, 4)))
-	assert.Equal(t, h.QueryPoint(geom.Pt(2, 2)), []int{1})
+		assert.Equal(t, h.QueryPoint(geom.Pt(2, 2)), []int{1})
+	})
+	t.Run("allocates nothing filling the same cells again", func(t *testing.T) {
+		h := NewHash[int](10)
+		small, large := geom.Bx(geom.Pt(1, 1), geom.Pt(14, 14)), geom.Bx(geom.Pt(0, 0), geom.Pt(1000, 1000))
+		h.Set(1, small)
+		h.Set(2, large)
+		h.Clear()
+		h.Set(1, small)
+		h.Set(2, large)
+
+		assert.Allocates(t, func() {
+			h.Clear()
+			h.Set(1, small)
+			h.Set(2, large)
+		}, 0)
+	})
 }
 
 func TestHash_Get(t *testing.T) {
@@ -620,6 +642,37 @@ func BenchmarkHash_AppendPairs(b *testing.B) {
 	}
 }
 
+func TestHash_order(t *testing.T) {
+	a, b := replayedHashes()
+	rng := rand.New(rand.NewPCG(7, 8))
+
+	t.Run("returns the keys of a box in the same order for the same changes", func(t *testing.T) {
+		for range 300 {
+			query := randomBox(rng, 4.0)
+			assert.Equal(t, a.QueryBox(query), b.QueryBox(query))
+		}
+	})
+	t.Run("returns the keys of a box over every cell in the same order for the same changes", func(t *testing.T) {
+		query := geom.Bx(geom.Pt(-1e6, -1e6), geom.Pt(1e6, 1e6))
+		assert.Equal(t, a.QueryBox(query), b.QueryBox(query))
+	})
+	t.Run("returns the keys of a segment in the same order for the same changes", func(t *testing.T) {
+		for range 300 {
+			query := randomSegment(rng, 4.0)
+			assert.Equal(t, slices.Collect(a.QuerySegment(query)), slices.Collect(b.QuerySegment(query)))
+		}
+	})
+	t.Run("returns the keys of a ray in the same order for the same changes", func(t *testing.T) {
+		for range 300 {
+			query := randomRay(rng, 4.0)
+			assert.Equal(t, slices.Collect(a.QueryRay(query)), slices.Collect(b.QueryRay(query)))
+		}
+	})
+	t.Run("returns the pairs in the same order for the same changes", func(t *testing.T) {
+		assert.Equal(t, a.Pairs(), b.Pairs())
+	})
+}
+
 func FuzzHash(f *testing.F) {
 	f.Add(uint64(1), []byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9})
 	f.Add(uint64(7), []byte{9, 9, 9, 1, 1, 1, 200, 3, 3})
@@ -885,6 +938,28 @@ func newFixture[T geom.Number](cellSize T) fixture {
 			assertPairs(t, h.Pairs(), expected)
 		},
 	}
+}
+
+// replayedHashes returns two hashes given the same changes: keys set, moved and deleted at random,
+// some of them large, NaN or infinite.
+func replayedHashes() (*Hash[int, float64], *Hash[int, float64]) {
+	rng := rand.New(rand.NewPCG(5, 6))
+	a, b := NewHash[int](4.0), NewHash[int](4.0)
+
+	for range 2000 {
+		key := rng.IntN(300)
+		if rng.IntN(5) == 0 {
+			a.Delete(key)
+			b.Delete(key)
+			continue
+		}
+
+		box := randomBox(rng, 4.0)
+		a.Set(key, box)
+		b.Set(key, box)
+	}
+
+	return a, b
 }
 
 // randomBox returns a box of random size at a random place, often on a cell border or within the

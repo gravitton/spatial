@@ -17,7 +17,7 @@
 // never disagrees with the narrow phase on a touch, the tolerant one included.
 //
 // Every query reports a key at most once, and every pair once in either order. Results come in
-// no particular order.
+// no particular order, but in the same one on every run for the same changes made to a hash.
 //
 // A query never changes the index, so any number may run at once. A change must not run beside a
 // query or another change, and a hash must not change while a query of it is ranged.
